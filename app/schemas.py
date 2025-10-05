@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from datetime import date as DateType, datetime
@@ -36,7 +37,7 @@ class Layer(CamelModel):
 class MapState(CamelModel):
     lon: float = Field(..., description="Longitud del centro.")
     lat: float = Field(..., description="Latitud del centro.")
-    zoom: int = Field(..., ge=0, description="Nivel de zoom.")
+    zoom: float = Field(..., ge=0, description="Nivel de zoom.")
     date: Optional[DateType] = Field(
         default=None, description="Fecha activa para capas temporales."
     )
@@ -45,21 +46,49 @@ class MapState(CamelModel):
     opacity: float = Field(default=1.0, ge=0.0, le=1.0, description="Opacidad (0-1).")
 
 
-class Annotation(CamelModel):
-    id: Optional[int] = Field(default=None)
-    session_id: Optional[int] = Field(default=None)
-    feature: Dict[str, Any] = Field(..., description="GeoJSON Feature completo.")
-    order: int = Field(default=0, ge=0)
+class AnnotationFeaturePayload(CamelModel):
+    id: Optional[str] = None
+    order: int = 0
+    feature: Dict[str, Any]
     properties: Dict[str, Any] = Field(default_factory=dict)
 
 
-class Session(CamelModel):
-    id: int
-    state: MapState
-    annotations: List[Annotation] = Field(default_factory=list)
-    user_id: Optional[int] = None
-    created_at: datetime
-    updated_at: datetime
+class AnnotationFeature(AnnotationFeaturePayload):
+    id: str = Field(..., description="Identificador de la anotacion.")
+    created_at: datetime = Field(..., description="Momento de creacion.")
+    updated_at: datetime = Field(..., description="Ultima actualizacion.")
+
+
+class FrameCenter(CamelModel):
+    lon: float
+    lat: float
+
+
+class FrameExtent(CamelModel):
+    min_lon: float
+    min_lat: float
+    max_lon: float
+    max_lat: float
+
+
+class Frame(CamelModel):
+    layer_key: str
+    date: Optional[DateType] = None
+    projection: str
+    zoom: float
+    opacity: float
+    center: FrameCenter
+    extent: FrameExtent
+
+
+class AnnotationBulkRequest(CamelModel):
+    frame: Frame
+    features: List[AnnotationFeaturePayload] = Field(default_factory=list)
+
+
+class AnnotationBulkResponse(CamelModel):
+    frame: Frame
+    features: List[AnnotationFeature] = Field(default_factory=list)
 
 
 class User(CamelModel):
@@ -67,17 +96,3 @@ class User(CamelModel):
     username: str
     api_token: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class SessionCreateRequest(CamelModel):
-    state: MapState
-    annotations: List[Annotation] = Field(default_factory=list)
-
-
-class SessionUpdateRequest(CamelModel):
-    state: MapState
-    annotations: Optional[List[Annotation]] = None
-
-
-class AnnotationUpsertRequest(CamelModel):
-    features: List[Annotation] = Field(default_factory=list)

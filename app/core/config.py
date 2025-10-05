@@ -20,7 +20,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    app_name: str = "demo-service"
+    app_name: str = "nasa-service"
     version: str = "0.1.0"
     environment: str = "local"
 
@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     db_driver: str = Field(default="postgresql+psycopg", alias="db_driver")
 
     database_echo: bool = Field(default=False, alias="database_echo")
-    allowed_origins: List[str] = Field(default_factory=lambda: ["https://embiggen.example.com"])
+    allowed_origins: List[str] = Field(default_factory=lambda: ["https://nasa.qminds.io","https://api.nasa.qminds.io", "http://localhost:5173", "http://localhost:8001"])
 
     nasa_gibs_base_url: AnyUrl = Field(
         default="https://gibs.earthdata.nasa.gov/wmts/epsg3857/best",
@@ -57,6 +57,7 @@ class Settings(BaseSettings):
         ge=0.1,
         description="Timeout for outbound HTTP requests to NASA services.",
     )
+    annotation_delete_secret: str = Field(default="qminds", alias="annotation_delete_secret")
 
     @property
     def database_url(self) -> str:

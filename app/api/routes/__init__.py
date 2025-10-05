@@ -1,3 +1,3 @@
-from . import health, layers, sessions, tiles
+from . import annotations, health, layers, tiles
 
-__all__ = ["health", "layers", "sessions", "tiles"]
+__all__ = ["annotations", "health", "layers", "tiles"]

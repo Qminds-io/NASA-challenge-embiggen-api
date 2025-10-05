@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 
 from app.broadcast.nasa import get_nasa_broadcast
 from app.db.session import get_db
-from app.schemas import Annotation
 from app.services.tiles import TileService
 
 router = APIRouter(prefix="/v1/layers", tags=["Tiles"])
