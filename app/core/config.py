@@ -7,7 +7,12 @@ from typing import List, Optional
 from pydantic import AnyUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-DEFAULT_SQLITE_URL = "sqlite:///./data/app.db"
+DEFAULT_DB_DRIVER = "postgresql+psycopg"
+DEFAULT_DB_USER = "nasa"
+DEFAULT_DB_PASSWORD = "nasa"
+DEFAULT_DB_HOST = "db"
+DEFAULT_DB_PORT = 5432
+DEFAULT_DB_NAME = "nasa"
 
 
 class Settings(BaseSettings):
@@ -25,12 +30,12 @@ class Settings(BaseSettings):
     environment: str = "local"
 
     raw_database_url: Optional[str] = Field(default=None, alias="database_url")
-    db_user: Optional[str] = Field(default=None, alias="db_user")
-    db_password: Optional[str] = Field(default=None, alias="db_password")
-    db_host: Optional[str] = Field(default=None, alias="db_host")
-    db_port: Optional[int] = Field(default=None, alias="db_port")
-    db_name: Optional[str] = Field(default=None, alias="db_name")
-    db_driver: str = Field(default="postgresql+psycopg", alias="db_driver")
+    db_user: str = Field(default=DEFAULT_DB_USER, alias="db_user")
+    db_password: str = Field(default=DEFAULT_DB_PASSWORD, alias="db_password")
+    db_host: str = Field(default=DEFAULT_DB_HOST, alias="db_host")
+    db_port: int = Field(default=DEFAULT_DB_PORT, alias="db_port")
+    db_name: str = Field(default=DEFAULT_DB_NAME, alias="db_name")
+    db_driver: str = Field(default=DEFAULT_DB_DRIVER, alias="db_driver")
 
     database_echo: bool = Field(default=False, alias="database_echo")
     allowed_origins: List[str] = Field(default_factory=lambda: ["https://nasa.qminds.io","https://api.nasa.qminds.io", "http://localhost:5173", "http://localhost:8001"])
@@ -63,13 +68,10 @@ class Settings(BaseSettings):
     def database_url(self) -> str:
         if self.raw_database_url:
             return self.raw_database_url
-        if self.db_user and self.db_password and self.db_host and self.db_name:
-            port = self.db_port or 5432
-            return (
-                f"{self.db_driver}://{self.db_user}:{self.db_password}@"
-                f"{self.db_host}:{port}/{self.db_name}"
-            )
-        return DEFAULT_SQLITE_URL
+        return (
+            f"{self.db_driver}://{self.db_user}:{self.db_password}@"
+            f"{self.db_host}:{self.db_port}/{self.db_name}"
+        )
 
     @property
     def is_local(self) -> bool:
