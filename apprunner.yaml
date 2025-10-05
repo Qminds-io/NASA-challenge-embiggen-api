@@ -1,16 +1,28 @@
 version: 1.0
 runtime: python311
 
+# Para 3.11 no necesitas realmente compilar nada en "build".
+# Déjalo como no-op para evitar errores si no hay requirements.txt en /.
 build:
   commands:
     build:
-      - pip3 install --upgrade pip
-      - pip3 install -r requirements.txt
-    post-build:
-      - /bin/bash -lc '[[ -f alembic.ini ]] && [[ "" == *"://"* ]] && alembic upgrade head || echo "Skipping alembic upgrade"'
+      - echo "No-op build for python311 (deps se instalan en pre-run)"
 
 run:
   runtime-version: 3.11
+  pre-run:
+    - python3 -m pip install --upgrade pip
+    - pip3 install -r requirements.txt
+    # Si usas Alembic, crea DATABASE_URL desde tus secretos y migra
+    - |
+      set -e
+      if [[ -f alembic.ini ]] && [[ -n "${APP_DB_HOST}" ]]; then
+        export DATABASE_URL="postgresql+psycopg2://${APP_DB_USER}:${APP_DB_PASSWORD}@${APP_DB_HOST}:${APP_DB_PORT}/${APP_DB_NAME}"
+        echo "Running alembic upgrade..."
+        alembic upgrade head || { echo "Alembic failed (continuing)"; }
+      else
+        echo "Skipping alembic upgrade"
+      fi
   command: python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8001
   network:
     port: 8001

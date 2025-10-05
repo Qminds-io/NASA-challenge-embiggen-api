@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Optional
 
-from sqlalchemy import and_, between, select
+from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
 from app.db import models
@@ -23,17 +23,20 @@ class AnnotationRepository:
         features: Sequence[AnnotationFeaturePayload],
     ) -> list[models.AnnotationModel]:
         created: list[models.AnnotationModel] = []
-        for feature_payload in features:
-            geometry = feature_payload.feature.get("geometry", {})
-            coordinates = geometry.get("coordinates", [0, 0])
+        for payload in features:
+            geometry = payload.feature.get("geometry", {})
+            coordinates = geometry.get("coordinates", [0.0, 0.0])
             lon, lat = coordinates
             model = models.AnnotationModel(
-                external_id=feature_payload.id,
-                order=feature_payload.order,
-                feature=feature_payload.feature,
-                properties=feature_payload.properties,
-                title=feature_payload.feature.get("properties", {}).get("name", feature_payload.feature.get("id", "Annotation")),
-                description=feature_payload.feature.get("properties", {}).get("description"),
+                external_id=payload.id,
+                order=payload.order,
+                feature=payload.feature,
+                properties=payload.properties,
+                title=payload.feature.get("properties", {}).get(
+                    "name",
+                    payload.feature.get("id", "Annotation"),
+                ),
+                description=payload.feature.get("properties", {}).get("description"),
                 lat=lat,
                 lon=lon,
                 layer_key=frame.layer_key,
@@ -64,27 +67,42 @@ class AnnotationRepository:
         self.session.commit()
         return True
 
-    def list_all(self) -> list[models.AnnotationModel]:
-        stmt = select(models.AnnotationModel).order_by(models.AnnotationModel.updated_at.desc())
-        return self.session.execute(stmt).scalars().all()
-
-    def list_in_bounds(
+    def list_filtered(
         self,
-        south: float,
-        west: float,
-        north: float,
-        east: float,
+        *,
+        south: Optional[float] = None,
+        west: Optional[float] = None,
+        north: Optional[float] = None,
+        east: Optional[float] = None,
+        layer_key: Optional[str] = None,
+        projection: Optional[str] = None,
+        date: Optional[object] = None,
+        limit: Optional[int] = None,
     ) -> list[models.AnnotationModel]:
-        stmt = (
-            select(models.AnnotationModel)
-            .where(
-                and_(
-                    between(models.AnnotationModel.lat, south, north),
-                    between(models.AnnotationModel.lon, west, east),
-                )
-            )
-            .order_by(models.AnnotationModel.updated_at.desc())
-        )
+        stmt = select(models.AnnotationModel)
+        conditions = []
+
+        if None not in (south, north):
+            south_val = min(south, north)  # type: ignore[arg-type]
+            north_val = max(south, north)  # type: ignore[arg-type]
+            conditions.append(models.AnnotationModel.lat.between(south_val, north_val))
+        if None not in (west, east):
+            west_val = min(west, east)  # type: ignore[arg-type]
+            east_val = max(west, east)  # type: ignore[arg-type]
+            conditions.append(models.AnnotationModel.lon.between(west_val, east_val))
+        if layer_key:
+            conditions.append(models.AnnotationModel.layer_key == layer_key)
+        if projection:
+            conditions.append(models.AnnotationModel.projection == projection)
+        if date:
+            conditions.append(models.AnnotationModel.date == date)
+
+        if conditions:
+            stmt = stmt.where(and_(*conditions))
+
+        stmt = stmt.order_by(models.AnnotationModel.updated_at.desc())
+        if limit:
+            stmt = stmt.limit(limit)
         return self.session.execute(stmt).scalars().all()
 
 
