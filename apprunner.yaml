@@ -25,6 +25,8 @@ run:
       value: nasa-api
     - name: APP_RUN_MIGRATIONS_ON_STARTUP
       value: "true"
+    - name: APP_DB_DRIVER
+      value: postgresql+psycopg
   secrets:
     - name: APP_DB_USER
       value-from: "arn:aws:secretsmanager:us-east-2:051826716611:secret:rds!db-45b2301c-91f2-4157-9bcc-c09cd0c8c42b-gm8OOq:username::"
@@ -36,5 +38,3 @@ run:
       value-from: "arn:aws:secretsmanager:us-east-2:051826716611:secret:nasa-YjR1sP:port::"
     - name: APP_DB_NAME
       value-from: "arn:aws:secretsmanager:us-east-2:051826716611:secret:nasa-YjR1sP:dbname::"
-    - name: APP_DB_DRIVER
-      value: postgresql+psycopg
