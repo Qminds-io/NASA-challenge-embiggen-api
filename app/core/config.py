@@ -36,9 +36,10 @@ class Settings(BaseSettings):
     db_port: int = Field(default=DEFAULT_DB_PORT, alias="db_port")
     db_name: str = Field(default=DEFAULT_DB_NAME, alias="db_name")
     db_driver: str = Field(default=DEFAULT_DB_DRIVER, alias="db_driver")
+    db_sslmode: Optional[str] = Field(default=None, alias="db_sslmode")
 
     database_echo: bool = Field(default=False, alias="database_echo")
-    run_migrations_on_startup: bool = Field(default=True, alias="run_migrations_on_startup")
+    run_migrations_on_startup: bool = Field(default=False, alias="run_migrations_on_startup")
     allowed_origins: List[str] = Field(default_factory=lambda: ["https://nasa.qminds.io","https://api.nasa.qminds.io", "http://localhost:5173", "http://localhost:8001"])
 
     nasa_gibs_base_url: AnyUrl = Field(
@@ -89,4 +90,3 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
-
