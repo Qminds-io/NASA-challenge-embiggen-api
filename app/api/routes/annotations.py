@@ -1,5 +1,6 @@
-
 from __future__ import annotations
+
+from datetime import date as DateType
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -8,7 +9,13 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.session import get_db
 from app.dependencies import limit_db_requests
-from app.schemas import AnnotationBulkRequest, AnnotationBulkResponse
+from app.schemas import (
+    AnnotationBulkRequest,
+    AnnotationBulkResponse,
+    Frame,
+    FrameCenter,
+    FrameExtent,
+)
 from app.services.annotations import AnnotationService
 
 router = APIRouter(prefix="/v1/annotations", tags=["Annotations"])
@@ -16,6 +23,45 @@ router = APIRouter(prefix="/v1/annotations", tags=["Annotations"])
 
 def _service(db: Session) -> AnnotationService:
     return AnnotationService(db)
+
+
+@router.get(
+    "",
+    response_model=AnnotationBulkResponse,
+    summary="Consultar anotaciones utilizando parametros del mapa",
+)
+def list_annotations(
+    layer_key: str = Query(..., alias="layerKey", description="Identificador de la capa"),
+    projection: str = Query(..., description="Proyeccion activa"),
+    zoom: float = Query(..., description="Nivel de zoom actual"),
+    opacity: float = Query(1.0, description="Opacidad aplicada a la capa"),
+    center_lon: float = Query(..., alias="centerLon", description="Longitud del centro"),
+    center_lat: float = Query(..., alias="centerLat", description="Latitud del centro"),
+    min_lon: float = Query(..., alias="minLon", description="Longitud minima del cuadro"),
+    min_lat: float = Query(..., alias="minLat", description="Latitud minima del cuadro"),
+    max_lon: float = Query(..., alias="maxLon", description="Longitud maxima del cuadro"),
+    max_lat: float = Query(..., alias="maxLat", description="Latitud maxima del cuadro"),
+    date: Optional[DateType] = Query(None, description="Fecha asociada a la capa"),
+    limit: Optional[int] = Query(None, ge=1, description="Limite de anotaciones devueltas"),
+    _: None = Depends(limit_db_requests),
+    db: Session = Depends(get_db),
+) -> AnnotationBulkResponse:
+    frame = Frame(
+        layer_key=layer_key,
+        date=date,
+        projection=projection,
+        zoom=zoom,
+        opacity=opacity,
+        center=FrameCenter(lon=center_lon, lat=center_lat),
+        extent=FrameExtent(
+            min_lon=min_lon,
+            min_lat=min_lat,
+            max_lon=max_lon,
+            max_lat=max_lat,
+        ),
+    )
+    service = _service(db)
+    return service.query_by_frame(frame, limit=limit)
 
 
 @router.post(

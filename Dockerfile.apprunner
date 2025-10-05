@@ -1,0 +1,22 @@
+# Local image that mimics AWS App Runner's python311 runtime layout.
+FROM python:3.11-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN python -m ensurepip --upgrade \
+    && python -m pip install --upgrade pip setuptools wheel
+
+COPY requirements.txt ./
+RUN mkdir -p /app/.python_packages \
+    && python -m pip install --no-cache-dir -r requirements.txt -t /app/.python_packages
+
+COPY . .
+
+ENV PYTHONPATH=/app/.python_packages
+
+EXPOSE 8001
+
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]

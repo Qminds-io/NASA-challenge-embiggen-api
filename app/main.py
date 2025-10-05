@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.api.routes import annotations, health, layers, tiles
 from app.broadcast.nasa import get_nasa_broadcast
 from app.core.config import settings
+from app.db.migrations import run_migrations
 from app.db.session import SessionLocal
 from app.repositories.layers import LayerRepository, default_layers
 
@@ -61,6 +62,9 @@ app.include_router(annotations.router)
 
 @app.on_event("startup")
 async def startup_event() -> None:
+    if settings.run_migrations_on_startup:
+        run_migrations()
+
     with closing(SessionLocal()) as db:
         repo = LayerRepository(db)
         repo.ensure_seeded(default_layers())
@@ -77,3 +81,4 @@ def read_root() -> dict[str, str]:
 
 
 __all__ = ["app"]
+

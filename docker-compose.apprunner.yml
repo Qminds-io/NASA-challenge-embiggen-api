@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: nasa-apprunner-db
+    environment:
+      POSTGRES_USER: nasa
+      POSTGRES_PASSWORD: nasa
+      POSTGRES_DB: nasa
+    ports:
+      - "5544:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nasa"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - apprunner-pgdata:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.apprunner
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PYTHONPATH: /app/.python_packages
+      APP_ENVIRONMENT: production
+      APP_ALLOWED_ORIGINS: '["https://nasa.qminds.io", "https://api.nasa.qminds.io"]'
+      APP_DB_HOST: db
+      APP_DB_PORT: 5432
+      APP_DB_USER: nasa
+      APP_DB_PASSWORD: nasa
+      APP_DB_NAME: nasa
+      APP_DB_DRIVER: postgresql+psycopg
+      APP_RUN_MIGRATIONS_ON_STARTUP: "true"
+    ports:
+      - "8002:8001"
+    command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+
+volumes:
+  apprunner-pgdata:
