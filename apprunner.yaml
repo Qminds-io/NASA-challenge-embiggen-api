@@ -1,34 +1,37 @@
 version: 1.0
 runtime: python311
 
-# Para 3.11 no necesitas realmente compilar nada en "build".
-# Déjalo como no-op para evitar errores si no hay requirements.txt en /.
+# Mantén build vacío para python311 (evita instalaciones aquí)
 build:
   commands:
     build:
-      - echo "No-op build for python311 (deps se instalan en pre-run)"
+      - echo "No-op build for python311 (deps van en run.pre-run)"
 
 run:
   runtime-version: 3.11
   pre-run:
     - python3 -m pip install --upgrade pip
     - pip3 install -r requirements.txt
-    # Si usas Alembic, crea DATABASE_URL desde tus secretos y migra
-    - |
+  command: |
+    bash -lc '
       set -e
-      if [[ -f alembic.ini ]] && [[ -n "${APP_DB_HOST}" ]]; then
+      # Compón DATABASE_URL con secretos y corre Alembic justo antes de arrancar
+      if [[ -f alembic.ini ]] && [[ "${RUN_DB_MIGRATIONS:-1}" == "1" ]]; then
         export DATABASE_URL="postgresql+psycopg2://${APP_DB_USER}:${APP_DB_PASSWORD}@${APP_DB_HOST}:${APP_DB_PORT}/${APP_DB_NAME}"
         echo "Running alembic upgrade..."
-        alembic upgrade head || { echo "Alembic failed (continuing)"; }
+        alembic upgrade head
       else
-        echo "Skipping alembic upgrade"
+        echo "Skipping migrations"
       fi
-  command: python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8001
+      exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8001
+    '
   network:
-    port: 8001
+    port: 8001   # Debe coincidir con el --port de Uvicorn
   env:
     - name: APP_ENVIRONMENT
       value: production
+    - name: RUN_DB_MIGRATIONS
+      value: "1"
   secrets:
     - name: APP_DB_USER
       value-from: "arn:aws:secretsmanager:us-east-2:051826716611:secret:rds!db-45b2301c-91f2-4157-9bcc-c09cd0c8c42b-gm8OOq:username::"
