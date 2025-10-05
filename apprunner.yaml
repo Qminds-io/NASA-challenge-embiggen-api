@@ -1,0 +1,30 @@
+version: 1.0
+runtime: python311
+
+build:
+  commands:
+    build:
+      - pip3 install --upgrade pip
+      - pip3 install -r requirements.txt
+    post-build:
+      - /bin/bash -lc '[[ -f alembic.ini ]] && [[ "" == *"://"* ]] && alembic upgrade head || echo "Skipping alembic upgrade"'
+
+run:
+  runtime-version: 3.11
+  command: python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8001
+  network:
+    port: 8001
+  env:
+    - name: APP_ENVIRONMENT
+      value: production
+  secrets:
+    - name: APP_DB_USER
+      value-from: "arn:aws:secretsmanager:us-east-2:051826716611:secret:rds!db-45b2301c-91f2-4157-9bcc-c09cd0c8c42b-gm8OOq:username::"
+    - name: APP_DB_PASSWORD
+      value-from: "arn:aws:secretsmanager:us-east-2:051826716611:secret:rds!db-45b2301c-91f2-4157-9bcc-c09cd0c8c42b-gm8OOq:password::"
+    - name: APP_DB_HOST
+      value-from: "arn:aws:secretsmanager:us-east-2:051826716611:secret:nasa-YjR1sP:host::"
+    - name: APP_DB_PORT
+      value-from: "arn:aws:secretsmanager:us-east-2:051826716611:secret:nasa-YjR1sP:port::"
+    - name: APP_DB_NAME
+      value-from: "arn:aws:secretsmanager:us-east-2:051826716611:secret:nasa-YjR1sP:dbname::"

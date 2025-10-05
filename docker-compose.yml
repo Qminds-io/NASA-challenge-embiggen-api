@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      APP_ENVIRONMENT: dev
+      APP_ALLOWED_ORIGINS: "http://localhost:3000"
+      APP_DATABASE_URL: "sqlite:///./data/app.db"
+      APP_DATABASE_ECHO: "false"
+    volumes:
+      - ./data:/app/data
+      - ./.cache:/app/.cache
+    command: [
+      "uvicorn",
+      "app.main:app",
+      "--host", "0.0.0.0",
+      "--port", "8001",
+      "--reload"
+    ]
+
+volumes:
+  data:
+  cache:
