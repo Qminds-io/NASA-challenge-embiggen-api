@@ -1,37 +1,27 @@
 version: 1.0
 runtime: python311
 
-# Mantén build vacío para python311 (evita instalaciones aquí)
 build:
   commands:
+    pre-build:
+      - echo "pre-build ok"
     build:
-      - echo "No-op build for python311 (deps van en run.pre-run)"
+      - pip3 install --upgrade pip
+      - mkdir -p /app/.python_packages
+      - pip3 install -r requirements.txt -t /app/.python_packages
+    post-build:
+      - /bin/bash -lc '[[ "$DATABASE_URL" == *"://"* ]] && PYTHONPATH=/app/.python_packages python3 -c "from alembic.config import Config; from alembic import command; cfg=Config(\"alembic.ini\"); command.upgrade(cfg, \"head\")" || echo "Skipping alembic (no DSN in DATABASE_URL during build)"'
 
 run:
   runtime-version: 3.11
-  pre-run:
-    - python3 -m pip install --upgrade pip
-    - pip3 install -r requirements.txt
-  command: |
-    bash -lc '
-      set -e
-      # Compón DATABASE_URL con secretos y corre Alembic justo antes de arrancar
-      if [[ -f alembic.ini ]] && [[ "${RUN_DB_MIGRATIONS:-1}" == "1" ]]; then
-        export DATABASE_URL="postgresql+psycopg2://${APP_DB_USER}:${APP_DB_PASSWORD}@${APP_DB_HOST}:${APP_DB_PORT}/${APP_DB_NAME}"
-        echo "Running alembic upgrade..."
-        alembic upgrade head
-      else
-        echo "Skipping migrations"
-      fi
-      exec python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8001
-    '
+  command: python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8001
   network:
-    port: 8001   # Debe coincidir con el --port de Uvicorn
+    port: 8001
   env:
-    - name: APP_ENVIRONMENT
-      value: production
-    - name: RUN_DB_MIGRATIONS
-      value: "1"
+    - name: PYTHONPATH
+      value: "/app/.python_packages"
+    - name: APP_NAME
+      value: nasa-api
   secrets:
     - name: APP_DB_USER
       value-from: "arn:aws:secretsmanager:us-east-2:051826716611:secret:rds!db-45b2301c-91f2-4157-9bcc-c09cd0c8c42b-gm8OOq:username::"
