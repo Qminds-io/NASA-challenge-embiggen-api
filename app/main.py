@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from contextlib import closing
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,8 +9,6 @@ from fastapi.responses import JSONResponse
 from app.api.routes import annotations, health, layers, tiles
 from app.broadcast.nasa import get_nasa_broadcast
 from app.core.config import settings
-from app.db.session import SessionLocal
-from app.repositories.layers import LayerRepository, default_layers
 
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger("app.startup")
@@ -77,9 +74,6 @@ async def startup_event() -> None:
     if settings.run_migrations_on_startup:
         LOGGER.warning("run_migrations_on_startup is enabled but automatic execution is disabled in code")
 
-    with closing(SessionLocal()) as db:
-        repo = LayerRepository(db)
-        repo.ensure_seeded(default_layers())
     LOGGER.info("Startup completed")
 
 

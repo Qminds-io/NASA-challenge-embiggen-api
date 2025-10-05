@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import List, Optional
+from typing import List
+from urllib.parse import quote_plus
 
 from pydantic import AnyUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -29,18 +30,23 @@ class Settings(BaseSettings):
     version: str = "0.1.0"
     environment: str = "local"
 
-    raw_database_url: Optional[str] = Field(default=None, alias="database_url")
-    db_user: str = Field(default=DEFAULT_DB_USER, alias="db_user")
-    db_password: str = Field(default=DEFAULT_DB_PASSWORD, alias="db_password")
-    db_host: str = Field(default=DEFAULT_DB_HOST, alias="db_host")
-    db_port: int = Field(default=DEFAULT_DB_PORT, alias="db_port")
-    db_name: str = Field(default=DEFAULT_DB_NAME, alias="db_name")
-    db_driver: str = Field(default=DEFAULT_DB_DRIVER, alias="db_driver")
-    db_sslmode: Optional[str] = Field(default=None, alias="db_sslmode")
+    db_user: str = DEFAULT_DB_USER
+    db_password: str = DEFAULT_DB_PASSWORD
+    db_host: str = DEFAULT_DB_HOST
+    db_port: int = DEFAULT_DB_PORT
+    db_name: str = DEFAULT_DB_NAME
+    db_driver: str = DEFAULT_DB_DRIVER
 
-    database_echo: bool = Field(default=False, alias="database_echo")
-    run_migrations_on_startup: bool = Field(default=False, alias="run_migrations_on_startup")
-    allowed_origins: List[str] = Field(default_factory=lambda: ["https://nasa.qminds.io","https://api.nasa.qminds.io", "http://localhost:5173", "http://localhost:8001"])
+    database_echo: bool = False
+    run_migrations_on_startup: bool = False
+    allowed_origins: List[str] = Field(
+        default_factory=lambda: [
+            "https://nasa.qminds.io",
+            "https://api.nasa.qminds.io",
+            "http://localhost:5173",
+            "http://localhost:8001",
+        ]
+    )
 
     nasa_gibs_base_url: AnyUrl = Field(
         default="https://gibs.earthdata.nasa.gov/wmts/epsg3857/best",
@@ -64,16 +70,13 @@ class Settings(BaseSettings):
         ge=0.1,
         description="Timeout for outbound HTTP requests to NASA services.",
     )
-    annotation_delete_secret: str = Field(default="qminds", alias="annotation_delete_secret")
+    annotation_delete_secret: str = Field(default="qminds")
 
     @property
     def database_url(self) -> str:
-        if self.raw_database_url:
-            return self.raw_database_url
-        return (
-            f"{self.db_driver}://{self.db_user}:{self.db_password}@"
-            f"{self.db_host}:{self.db_port}/{self.db_name}"
-        )
+        password = quote_plus(self.db_password) if self.db_password else ""
+        auth = self.db_user if not password else f"{self.db_user}:{password}"
+        return f"{self.db_driver}://{auth}@{self.db_host}:{self.db_port}/{self.db_name}"
 
     @property
     def is_local(self) -> bool:

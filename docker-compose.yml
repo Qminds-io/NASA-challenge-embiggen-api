@@ -1,42 +1,21 @@
-services:
-  db:
-    image: postgres:15-alpine
-    container_name: nasa-db
-    environment:
-      POSTGRES_USER: nasa
-      POSTGRES_PASSWORD: nasa
-      POSTGRES_DB: nasa
-    ports:
-      - "5433:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+version: "3.9"
 
+services:
   api:
     build:
       context: .
       dockerfile: Dockerfile
-    depends_on:
-      - db
+    env_file:
+      - .env.local
+    environment:
+      APP_ENVIRONMENT: ${APP_ENVIRONMENT:-dev}
+      APP_ALLOWED_ORIGINS: ${APP_ALLOWED_ORIGINS:-["http://localhost:5173", "http://localhost:8001"]}
     ports:
       - "8001:8001"
-    environment:
-      APP_ENVIRONMENT: dev
-      APP_ALLOWED_ORIGINS: '["http://localhost:5173", "http://localhost:8001"]'
-      APP_DATABASE_URL: "postgresql+psycopg://nasa:nasa@db:5432/nasa"
-      APP_DB_USER: nasa
-      APP_DB_PASSWORD: nasa
-      APP_DB_HOST: db
-      APP_DB_PORT: 5432
-      APP_DB_NAME: nasa
-      APP_DB_DRIVER: postgresql+psycopg
-      APP_DATABASE_ECHO: "false"
     volumes:
       - ./.cache:/app/.cache
-    command:
-      - "sh"
-      - "-c"
-      - "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload"
-
-volumes:
-  pgdata:
-  cache:
+    command: [
+      "sh",
+      "-c",
+      "uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload"
+    ]
