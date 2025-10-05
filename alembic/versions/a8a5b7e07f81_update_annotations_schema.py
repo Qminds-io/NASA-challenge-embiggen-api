@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 revision = "a8a5b7e07f81"
@@ -17,9 +18,52 @@ branch_labels = None
 depends_on = None
 
 
+EXPECTED_COLUMNS = {
+    "id",
+    "external_id",
+    "title",
+    "description",
+    "order",
+    "feature",
+    "lat",
+    "lon",
+    "layer_key",
+    "date",
+    "projection",
+    "zoom",
+    "opacity",
+    "center_lat",
+    "center_lon",
+    "extent_min_lat",
+    "extent_min_lon",
+    "extent_max_lat",
+    "extent_max_lon",
+    "properties",
+    "created_at",
+    "updated_at",
+}
+
+
+def _annotations_is_up_to_date(bind) -> bool:
+    inspector = inspect(bind)
+    if "annotations" not in inspector.get_table_names():
+        return False
+    existing_columns = {col["name"] for col in inspector.get_columns("annotations")}
+    return EXPECTED_COLUMNS.issubset(existing_columns)
+
+
 def upgrade() -> None:
-    op.drop_table("annotations")
-    op.drop_table("sessions")
+    bind = op.get_bind()
+    if _annotations_is_up_to_date(bind):
+        return
+
+    inspector = inspect(bind)
+    tables = set(inspector.get_table_names())
+
+    if "annotations" in tables:
+        op.drop_table("annotations")
+    if "sessions" in tables:
+        op.drop_table("sessions")
 
     op.create_table(
         "annotations",
@@ -27,7 +71,7 @@ def upgrade() -> None:
         sa.Column("external_id", sa.String(length=128), nullable=True),
         sa.Column("title", sa.String(length=255), nullable=False),
         sa.Column("description", sa.String(length=512), nullable=True),
-        sa.Column("order", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("order", sa.Integer(), nullable=False, server_default=sa.text("0")),
         sa.Column("feature", sa.JSON(), nullable=False),
         sa.Column("lat", sa.Float(), nullable=False),
         sa.Column("lon", sa.Float(), nullable=False),
@@ -42,7 +86,7 @@ def upgrade() -> None:
         sa.Column("extent_min_lon", sa.Float(), nullable=True),
         sa.Column("extent_max_lat", sa.Float(), nullable=True),
         sa.Column("extent_max_lon", sa.Float(), nullable=True),
-        sa.Column("properties", sa.JSON(), nullable=False, server_default=sa.text("'{}'")),
+        sa.Column("properties", sa.JSON(), nullable=False, server_default=sa.text("'{}'::json")),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )

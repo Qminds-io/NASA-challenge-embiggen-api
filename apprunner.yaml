@@ -3,21 +3,26 @@ runtime: python311
 
 build:
   commands:
+    pre-build:
+      - python3 -m ensurepip --upgrade
+      - python3 -m pip install --upgrade pip setuptools wheel
+      - echo "pre-build ok"
     build:
-      - echo "Build command..."
+      - mkdir -p /app/.python_packages
+      - python3 -m pip install -r requirements.txt -t /app/.python_packages
+    post-build:
+      - /bin/bash -lc '[[ "$DATABASE_URL" == *"://"* ]] && PYTHONPATH=/app/.python_packages python3 -c "from alembic.config import Config; from alembic import command; cfg=Config(\"alembic.ini\"); command.upgrade(cfg, \"head\")" || echo "Skipping alembic (no DSN in DATABASE_URL during build)"'
+
 run:
   runtime-version: 3.11
-
-  pre-run:
-    - echo "Installing dependencies..."
-    - pip3 install poetry
-    - poetry config virtualenvs.create false
-    - poetry install
-
-  command: poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000
-
+  command: python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8001
   network:
     port: 8001
+  env:
+    - name: PYTHONPATH
+      value: "/app/.python_packages"
+    - name: APP_NAME
+      value: nasa-api
   secrets:
     - name: APP_DB_USER
       value-from: "arn:aws:secretsmanager:us-east-2:051826716611:secret:rds!db-45b2301c-91f2-4157-9bcc-c09cd0c8c42b-gm8OOq:username::"
