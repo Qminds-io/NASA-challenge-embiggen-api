@@ -4,11 +4,12 @@ runtime: python311
 build:
   commands:
     pre-build:
+      - python3 -m ensurepip --upgrade
+      - python3 -m pip install --upgrade pip setuptools wheel
       - echo "pre-build ok"
     build:
-      - pip3 install --upgrade pip
       - mkdir -p /app/.python_packages
-      - pip3 install -r requirements.txt -t /app/.python_packages
+      - python3 -m pip install -r requirements.txt -t /app/.python_packages
     post-build:
       - /bin/bash -lc '[[ "$DATABASE_URL" == *"://"* ]] && PYTHONPATH=/app/.python_packages python3 -c "from alembic.config import Config; from alembic import command; cfg=Config(\"alembic.ini\"); command.upgrade(cfg, \"head\")" || echo "Skipping alembic (no DSN in DATABASE_URL during build)"'
 
