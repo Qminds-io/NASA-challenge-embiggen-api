@@ -23,5 +23,9 @@ def run_migrations() -> None:
     """Apply the latest Alembic migrations."""
 
     LOGGER.info("Running database migrations...")
-    command.upgrade(_alembic_config(), "head")
+    try:
+        command.upgrade(_alembic_config(), "head")
+    except Exception as exc:  # pragma: no cover - defensive logging for production runtime
+        LOGGER.exception("Alembic upgrade failed", exc_info=exc)
+        raise
     LOGGER.info("Database migrations completed.")
