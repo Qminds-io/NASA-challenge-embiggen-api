@@ -4,15 +4,13 @@ from datetime import date as DateType
 from typing import Optional, Tuple
 
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
 
 from app.broadcast.nasa import NasaBroadcast
-from app.repositories.layers import LayerRepository
+from app.layers_catalog import get_layer
 
 
 class TileService:
-    def __init__(self, db: Session, broadcast: NasaBroadcast) -> None:
-        self.layers = LayerRepository(db)
+    def __init__(self, broadcast: NasaBroadcast) -> None:
         self.broadcast = broadcast
 
     async def fetch_tile(
@@ -23,7 +21,7 @@ class TileService:
         y: int,
         date_override: Optional[DateType],
     ) -> Tuple[bytes, dict[str, str]]:
-        layer = self.layers.get_by_key(layer_key)
+        layer = get_layer(layer_key)
         if layer is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

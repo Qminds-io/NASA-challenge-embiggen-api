@@ -1,14 +1,27 @@
 from __future__ import annotations
 
 from datetime import date as DateType
-from typing import Dict, Optional
+from typing import Dict, Optional, Protocol
 
 import httpx
 from fastapi import HTTPException, status
 
 from app.cache import FileCache
 from app.core.config import settings
-from app.db.models import LayerModel
+
+
+class LayerDefinition(Protocol):
+    layer_key: str
+    title: str
+    kind: str
+    body: str
+    projection: str
+    matrix_set: Optional[str]
+    image_format: Optional[str]
+    style: Optional[str]
+    max_zoom: Optional[int]
+    default_date: Optional[DateType]
+    source_template: str
 
 
 class NasaBroadcast:
@@ -29,7 +42,7 @@ class NasaBroadcast:
 
     async def get_tile(
         self,
-        layer: LayerModel,
+        layer: LayerDefinition,
         z: int,
         x: int,
         y: int,
@@ -93,7 +106,7 @@ class NasaBroadcast:
 
     def _cache_key(
         self,
-        layer: LayerModel,
+        layer: LayerDefinition,
         z: int,
         x: int,
         y: int,
@@ -104,7 +117,7 @@ class NasaBroadcast:
 
     def _build_url(
         self,
-        layer: LayerModel,
+        layer: LayerDefinition,
         z: int,
         x: int,
         y: int,
@@ -125,7 +138,7 @@ class NasaBroadcast:
 
     def _build_gibs(
         self,
-        layer: LayerModel,
+        layer: LayerDefinition,
         z: int,
         x: int,
         y: int,
@@ -136,35 +149,44 @@ class NasaBroadcast:
         matrix_set = layer.matrix_set or "GoogleMapsCompatible_Level9"
         image_format = layer.image_format or "jpg"
         target_date = (date_override or layer.default_date or DateType.today()).isoformat()
-        return (
-            f"{base_url}/{layer_id}/default/{target_date}/{matrix_set}/{z}/{y}/{x}.{image_format}"
+        template = layer.source_template or "{layerId}/default/{date}/{matrixSet}/{z}/{y}/{x}.{format}"
+        full_template = template if template.startswith("http") else f"{base_url}/{template.lstrip('/')}"
+        return full_template.format(
+            layerId=layer_id,
+            date=target_date,
+            matrixSet=matrix_set,
+            z=z,
+            y=y,
+            x=x,
+            format=image_format,
+            style=layer.style or "default",
         )
 
     def _build_treks(
         self,
-        layer: LayerModel,
+        layer: LayerDefinition,
         z: int,
         x: int,
         y: int,
     ) -> str:
-        base_url = str(settings.nasa_treks_base_url).rstrip("/")
-        try:
-            _, body, layer_name = layer.layer_key.split(":", 2)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "status": "error",
-                    "code": "invalid_layer_key",
-                    "message": "Las capas trek deben seguir 'trek:Body:Layer'.",
-                    "details": layer.layer_key,
-                },
-            ) from exc
-        style = layer.style or "default"
+        template = layer.source_template or "{body}/EQ/{layer}/1.0.0/{style}/{matrixSet}/{z}/{y}/{x}.{format}"
+        base_url = None if template.startswith("http") else str(settings.nasa_treks_base_url).rstrip("/")
+        path = template if template.startswith("http") else f"{base_url}/{template.lstrip('/')}"
         matrix_set = layer.matrix_set or "default028mm"
         image_format = layer.image_format or "png"
-        return (
-            f"{base_url}/{body}/EQ/{layer_name}/1.0.0/{style}/{matrix_set}/{z}/{y}/{x}.{image_format}"
+        style = layer.style or "default"
+        parts = layer.layer_key.split(":", 2)
+        body_fragment = parts[1] if len(parts) > 1 else layer.body
+        layer_fragment = parts[2] if len(parts) > 2 else layer.layer_key
+        return path.format(
+            body=body_fragment,
+            layer=layer_fragment,
+            style=style,
+            matrixSet=matrix_set,
+            z=z,
+            y=y,
+            x=x,
+            format=image_format,
         )
 
 

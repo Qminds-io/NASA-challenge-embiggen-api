@@ -25,7 +25,7 @@ async def test_gibs_tile_fetch_and_cache(tmp_path, respx_mock):
         style="default",
         max_zoom=9,
         default_date=DateType(2024, 1, 1),
-        source_template="",
+        source_template="{layerId}/default/{date}/{matrixSet}/{z}/{y}/{x}.{format}",
     )
 
     expected_url = service._build_gibs(layer, z=2, x=1, y=3, date_override=DateType(2024, 1, 5))

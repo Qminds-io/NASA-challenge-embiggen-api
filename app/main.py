@@ -73,7 +73,6 @@ async def startup_event() -> None:
     )
     if settings.run_migrations_on_startup:
         LOGGER.warning("run_migrations_on_startup is enabled but automatic execution is disabled in code")
-
     LOGGER.info("Startup completed")
 
 

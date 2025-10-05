@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Generator
 import logging
 
+from fastapi import HTTPException
+from fastapi.exceptions import RequestValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
@@ -21,6 +23,8 @@ def get_db() -> Generator[Session, None, None]:
     try:
         db = SessionLocal()
         yield db
+    except (HTTPException, RequestValidationError):
+        raise
     except Exception as exc:  # pragma: no cover - explicit logging for connection issues
         LOGGER.exception("Database session failed")
         print(f"[DB ERROR] url={settings.database_url} error={exc}")
