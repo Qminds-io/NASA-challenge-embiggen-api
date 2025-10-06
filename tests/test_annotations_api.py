@@ -69,24 +69,50 @@ FEATURE_PAYLOAD = {
 }
 
 
+POLYGON_FEATURE_PAYLOAD = {
+    "id": "poly-001",
+    "order": 1,
+    "feature": {
+        "type": "Feature",
+        "geometry": {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [-58.46, -34.59],
+                    [-58.44, -34.61],
+                    [-58.42, -34.58],
+                    [-58.46, -34.59],
+                ]
+            ],
+        },
+        "properties": {"name": "Buenos Aires Region"},
+    },
+    "properties": {"color": "#00FF00"},
+}
+
 def test_annotations_crud_and_filter(api_client):
     client, headers = api_client
 
     create_payload = {
         "frame": FRAME_PAYLOAD,
-        "features": [FEATURE_PAYLOAD],
+        "features": [FEATURE_PAYLOAD, POLYGON_FEATURE_PAYLOAD],
     }
 
     response = client.post("/v1/annotations", json=create_payload, headers=headers)
     assert response.status_code == 201
     created = response.json()
-    assert created["features"]
-    annotation_id = created["features"][0]["id"]
+    created_features = created["features"]
+    assert len(created_features) == 2
+    assert any(
+        feature["feature"]["geometry"]["type"] == "Polygon" for feature in created_features
+    )
+    annotation_ids = [feature["id"] for feature in created_features]
 
     query_payload = {"frame": FRAME_PAYLOAD, "features": []}
     list_response = client.post("/v1/annotations/query", json=query_payload, headers=headers)
     assert list_response.status_code == 200
-    assert len(list_response.json()["features"]) == 1
+    listed_features = list_response.json()["features"]
+    assert len(listed_features) == 2
 
     outside_frame = {
         "frame": {
@@ -99,13 +125,14 @@ def test_annotations_crud_and_filter(api_client):
     assert empty_response.status_code == 200
     assert empty_response.json()["features"] == []
 
-    delete_response = client.delete(
-        f"/v1/annotations/{annotation_id}",
-        params={"secret": "qminds"},
-        headers=headers,
-    )
-    assert delete_response.status_code == 200
-    assert delete_response.json()["status"] == "deleted"
+    for annotation_id in annotation_ids:
+        delete_response = client.delete(
+            f"/v1/annotations/{annotation_id}",
+            params={"secret": "qminds"},
+            headers=headers,
+        )
+        assert delete_response.status_code == 200
+        assert delete_response.json()["status"] == "deleted"
 
     final_response = client.post("/v1/annotations/query", json=query_payload, headers=headers)
     assert final_response.status_code == 200

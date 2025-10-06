@@ -10,6 +10,29 @@ from sqlalchemy.orm import Session
 from app.db import models
 from app.schemas import AnnotationFeature, AnnotationFeaturePayload, Frame
 
+def _flatten_positions(value: object) -> list[tuple[float, float]]:
+    positions: list[tuple[float, float]] = []
+    if isinstance(value, (list, tuple)):
+        if value and isinstance(value[0], (int, float)):
+            lon = float(value[0])
+            lat = float(value[1]) if len(value) > 1 else 0.0
+            positions.append((lon, lat))
+        else:
+            for item in value:
+                positions.extend(_flatten_positions(item))
+    return positions
+
+
+def representative_point_from_geometry(geometry: object) -> tuple[float, float]:
+    if not isinstance(geometry, dict):
+        return 0.0, 0.0
+    positions = _flatten_positions(geometry.get("coordinates"))
+    if not positions:
+        return 0.0, 0.0
+    lon_total = sum(lon for lon, _ in positions)
+    lat_total = sum(lat for _, lat in positions)
+    count = len(positions)
+    return lon_total / count, lat_total / count
 
 class AnnotationRepository:
     """Persistence gateway for global annotations."""
@@ -25,8 +48,7 @@ class AnnotationRepository:
         created: list[models.AnnotationModel] = []
         for payload in features:
             geometry = payload.feature.get("geometry", {})
-            coordinates = geometry.get("coordinates", [0.0, 0.0])
-            lon, lat = coordinates
+            lon, lat = representative_point_from_geometry(geometry)
             model = models.AnnotationModel(
                 external_id=payload.id,
                 order=payload.order,
@@ -119,3 +141,4 @@ def to_feature(model: models.AnnotationModel) -> AnnotationFeature:
 
 def to_feature_list(models_: Sequence[models.AnnotationModel]) -> list[AnnotationFeature]:
     return [to_feature(model) for model in models_]
+
